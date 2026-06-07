@@ -1,0 +1,6 @@
+streamlit
+pymatgen
+plotly
+py3Dmol
+pandas
+numpy
