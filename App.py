@@ -1,7 +1,7 @@
 """
 Explorador de Materiales - Sistema de Información y Visualización
 Basado en el Handbook de Shackelford (CRC Materials Science and Engineering)
-Versión completa corregida.
+Versión completa corregida (Fórmula de Densidad Teórica validada).
 """
 
 import streamlit as st
@@ -17,7 +17,7 @@ import py3Dmol
 # ============================================================================
 st.set_page_config(
     page_title="Explorador de Materiales",
-    page_icon="",
+    page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -310,14 +310,11 @@ MATERIALS_DB = {
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
-
 @st.cache_data
 def get_material_data(material_name):
-    """Obtiene los datos de un material."""
     return MATERIALS_DB.get(material_name)
 
 def create_3d_viewer(structure, width=500, height=400):
-    """Crea un visor 3D de la estructura cristalina."""
     cif_str = structure.to(fmt="cif")
     view = py3Dmol.view(width=width, height=height)
     view.addModel(cif_str, "cif")
@@ -329,26 +326,17 @@ def create_3d_viewer(structure, width=500, height=400):
 # ============================================================================
 # INTERFAZ DE USUARIO
 # ============================================================================
-
-st.title(" Explorador de Materiales")
+st.title("🔬 Explorador de Materiales")
 st.markdown("""
 **Sistema de Información y Visualización de Materiales**
-Basado en el *CRC Materials Science and Engineering Handbook* de Shackelford
-
-Este sistema permite explorar las propiedades fundamentales de materiales
-representativos de diferentes categorías: metales, semiconductores y cerámicas.
+Basado en el *CRC Materials Science and Engineering Handbook* de Shackelford.
 """)
-
 st.divider()
 
-# Sidebar - Selección de material
-st.sidebar.header(" Selección de Material")
-
-# Filtro por categoría
+st.sidebar.header("🔍 Selección de Material")
 categories = sorted(set([m["category"] for m in MATERIALS_DB.values()]))
 selected_category = st.sidebar.selectbox("Categoría:", ["Todos"] + categories)
 
-# Filtrar materiales
 if selected_category == "Todos":
     material_names = list(MATERIALS_DB.keys())
 else:
@@ -356,7 +344,6 @@ else:
 
 selected_material = st.sidebar.selectbox("Material:", material_names)
 
-# Opciones de visualización
 st.sidebar.divider()
 st.sidebar.header("⚙️ Opciones")
 show_xrd = st.sidebar.checkbox("Mostrar Difractograma XRD", value=True)
@@ -367,34 +354,28 @@ xrd_max_angle = st.sidebar.slider("Ángulo 2θ máximo (°)", 60, 120, 90)
 # ============================================================================
 # CONTENIDO PRINCIPAL
 # ============================================================================
-
 if selected_material:
     data = get_material_data(selected_material)
-
-    # 🔧 CORRECCIÓN 1: Crear el objeto 'structure' AQUÍ, al inicio.
-    # Esto evita el error 'NameError' en la sección de APF si show_3d está desactivado.
+    
+    # CREACIÓN DE LA ESTRUCTURA CRISTALINA (Disponible para 3D, XRD y Densidad)
     lattice = Lattice.from_parameters(**data["lattice_params"])
     structure = Structure(lattice, data["species"], data["coords"])
 
     # --- SECCIÓN 1: INFORMACIÓN GENERAL ---
     st.header(f"📊 {data['name']} ({data['symbol']})")
-
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col1:
         st.subheader("🖼️ Imagen Representativa")
         try:
-            # 🔧 CORRECCIÓN 3: use_column_width está deprecado, usar use_container_width
             st.image(data["image_url"], caption=data["name"], use_container_width=True)
         except:
             st.info("Imagen no disponible")
-
         st.markdown(f"**Categoría:** {data['category']}")
 
     with col2:
         st.subheader("📝 Descripción")
         st.markdown(data["description"])
-
         st.subheader("📋 Propiedades Fundamentales")
         props_data = {
             "Propiedad": ["Número Atómico (Z)", "Masa Atómica (amu)",
@@ -409,8 +390,7 @@ if selected_material:
                 data["crystal_system"]
             ]
         }
-        df_props = pd.DataFrame(props_data)
-        st.table(df_props)
+        st.table(pd.DataFrame(props_data))
 
     with col3:
         st.subheader("📐 Parámetros de Red")
@@ -420,11 +400,9 @@ if selected_material:
             "Valor": [f"{params['a']:.3f}", f"{params['b']:.3f}", f"{params['c']:.3f}",
                      f"{params['alpha']:.1f}", f"{params['beta']:.1f}", f"{params['gamma']:.1f}"]
         }
-        df_params = pd.DataFrame(params_data)
-        st.table(df_params)
-
+        st.table(pd.DataFrame(params_data))
         st.subheader("🔬 Información Cristalográfica")
-        st.markdown(f"- **Número de átomos/celda:** {len(data['species'])}")
+        st.markdown(f"- **Átomos/iones por celda:** {len(data['species'])}")
         st.markdown(f"- **Especies:** {', '.join(set(data['species']))}")
 
     st.divider()
@@ -433,12 +411,10 @@ if selected_material:
     if show_3d:
         st.header("🧊 Estructura Cristalina 3D")
         col3d_1, col3d_2 = st.columns([2, 1])
-
         with col3d_1:
             html_3d = create_3d_viewer(structure)
             st.components.v1.html(html_3d, height=450)
-            st.caption(" Usa el mouse para rotar, zoom y desplazar la estructura")
-
+            st.caption("🖱️ Usa el mouse para rotar, zoom y desplazar la estructura")
         with col3d_2:
             st.subheader("Información de la Celda")
             st.markdown(f"""
@@ -447,18 +423,12 @@ if selected_material:
             - **Fórmula:** {structure.composition.reduced_formula}
             - **Densidad calculada:** {structure.density:.2f} g/cm³
             """)
-
             st.subheader("Posiciones Atómicas")
-            positions = []
-            for i, site in enumerate(structure):
-                positions.append({
-                    "Átomo": site.species_string,
-                    "x": f"{site.frac_coords[0]:.3f}",
-                    "y": f"{site.frac_coords[1]:.3f}",
-                    "z": f"{site.frac_coords[2]:.3f}"
-                })
-            df_pos = pd.DataFrame(positions)
-            st.dataframe(df_pos, use_container_width=True)
+            positions = [{"Átomo": site.species_string,
+                          "x": f"{site.frac_coords[0]:.3f}",
+                          "y": f"{site.frac_coords[1]:.3f}",
+                          "z": f"{site.frac_coords[2]:.3f}"} for site in structure]
+            st.dataframe(pd.DataFrame(positions), use_container_width=True)
 
     st.divider()
 
@@ -466,56 +436,29 @@ if selected_material:
     if show_xrd:
         st.header("📈 Difractograma de Rayos X (XRD)")
         st.markdown("""
-        **Fundamento físico:** El difractograma se calcula usando la **Ley de Bragg**:
-        $$n\\lambda = 2d\\sin(\\theta)$$
-        donde $\\lambda = 1.5406$ Å (radiación Cu Kα), $d$ es el espaciado interplanar,
-        y $\\theta$ es el ángulo de Bragg.
+        **Fundamento físico:** Ley de Bragg: $n\lambda = 2d\sin(\theta)$
         """)
-
         col_xrd_1, col_xrd_2 = st.columns([2, 1])
-
         with col_xrd_1:
-            # Calcular XRD usando el motor físico de pymatgen
             xrd_calc = XRDCalculator(wavelength=1.5406)
             pattern = xrd_calc.get_pattern(structure, two_theta_range=(xrd_min_angle, xrd_max_angle))
-            
             fig = go.Figure()
-
-            # 🔧 CORRECCIÓN 2: Validación segura para el índice de hkl
             for i in range(len(pattern.x)):
                 hkl = pattern.hkls[i]
-                # Asegurar que hkl tenga 3 elementos antes de formatear
-                if len(hkl) >= 3:
-                    hkl_str = f"({hkl[0]} {hkl[1]} {hkl[2]})"
-                else:
-                    hkl_str = str(hkl)
-                    
-                intensity = pattern.y[i]
-                two_theta = pattern.x[i]
-
+                hkl_str = f"({hkl[0]} {hkl[1]} {hkl[2]})" if len(hkl) >= 3 else str(hkl)
                 fig.add_trace(go.Scatter(
-                    x=[two_theta, two_theta],
-                    y=[0, intensity],
-                    mode='lines',
-                    line=dict(color='blue', width=2),
-                    name=hkl_str,
-                    hoverinfo='text',
-                    text=f"2θ: {two_theta:.2f}°<br>Intensidad: {intensity:.1f}<br>Plano: {hkl_str}"
+                    x=[pattern.x[i], pattern.x[i]], y=[0, pattern.y[i]],
+                    mode='lines', line=dict(color='blue', width=2), name=hkl_str,
+                    hoverinfo='text', text=f"2θ: {pattern.x[i]:.2f}°<br>Intensidad: {pattern.y[i]:.1f}<br>Plano: {hkl_str}"
                 ))
-
             fig.update_layout(
                 title=f"Patrón de Difracción - {data['name']}",
-                xaxis_title="Ángulo 2θ (grados)",
-                yaxis_title="Intensidad Relativa",
+                xaxis_title="Ángulo 2θ (grados)", yaxis_title="Intensidad Relativa",
                 xaxis=dict(range=[xrd_min_angle, xrd_max_angle]),
                 yaxis=dict(range=[0, max(pattern.y) * 1.15]) if len(pattern.y) > 0 else None,
-                template="plotly_white",
-                showlegend=False,
-                height=500
+                template="plotly_white", showlegend=False, height=500
             )
-
             st.plotly_chart(fig, use_container_width=True)
-
         with col_xrd_2:
             st.subheader("Picos Principales")
             if len(pattern.x) > 0:
@@ -525,108 +468,89 @@ if selected_material:
                     "Intensidad": [f"{y:.1f}" for y in pattern.y],
                     "Plano (hkl)": [f"({h[0]} {h[1]} {h[2]})" if len(h)>=3 else str(h) for h in pattern.hkls]
                 }
-                df_peaks = pd.DataFrame(peaks_data)
-                st.dataframe(df_peaks, use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(peaks_data), use_container_width=True, hide_index=True)
             else:
-                st.warning("No hay picos de difracción en este rango de ángulos.")
-
-            st.subheader(" Reglas de Selección")
-            crystal_sys = data["crystal_system"]
-            if "FCC" in crystal_sys or "Diamante" in crystal_sys:
-                st.markdown("**FCC/Diamante:** h, k, l todos pares o todos impares")
-            elif "BCC" in crystal_sys:
-                st.markdown("**BCC:** h+k+l = número par")
-            elif "HCP" in crystal_sys:
-                st.markdown("**HCP:** Reglas complejas de índices hexagonales")
+                st.warning("No hay picos en este rango.")
 
     st.divider()
 
     # --- SECCIÓN 4: ANÁLISIS FÍSICO-MATEMÁTICO ---
     st.header("🧮 Análisis Físico-Matemático")
-
     col_analysis_1, col_analysis_2 = st.columns(2)
 
     with col_analysis_1:
         st.subheader("Factor de Empaquetamiento Atómico (APF)")
         if data["atomic_radius_nm"]:
-            r = data["atomic_radius_nm"] * 10  # Convertir nm a Å
+            r = data["atomic_radius_nm"] * 10  # nm a Å
             n_atoms = len(data["species"])
-
-            # 🔧 CORRECCIÓN 1 (aplicada): 'structure' ya está definido al inicio del bloque
             V_cell = structure.volume
             V_atoms = n_atoms * (4/3) * np.pi * r**3
             APF = V_atoms / V_cell
-
             st.markdown(f"""
             $$APF = \\frac{{n \\cdot \\frac{{4}}{{3}}\\pi r^3}}{{V_{{celda}}}}$$
-
             - **Radio atómico (r):** {r:.3f} Å
             - **Átomos por celda (n):** {n_atoms}
             - **Volumen de celda:** {V_cell:.2f} Å³
             - **APF calculado:** {APF:.3f}
             """)
-
             crystal_sys = data["crystal_system"]
-            if "FCC" in crystal_sys:
-                st.info(f"APF teórico FCC = 0.740 | Error: {abs(APF-0.740)*100:.1f}%")
-            elif "BCC" in crystal_sys:
-                st.info(f"APF teórico BCC = 0.680 | Error: {abs(APF-0.680)*100:.1f}%")
-            elif "HCP" in crystal_sys:
-                st.info(f"APF teórico HCP = 0.740 | Error: {abs(APF-0.740)*100:.1f}%")
-            elif "Diamante" in crystal_sys:
-                st.info(f"APF teórico Diamante = 0.340 | Error: {abs(APF-0.340)*100:.1f}%")
+            if "FCC" in crystal_sys: st.info(f"APF teórico FCC = 0.740 | Error: {abs(APF-0.740)*100:.1f}%")
+            elif "BCC" in crystal_sys: st.info(f"APF teórico BCC = 0.680 | Error: {abs(APF-0.680)*100:.1f}%")
+            elif "HCP" in crystal_sys: st.info(f"APF teórico HCP = 0.740 | Error: {abs(APF-0.740)*100:.1f}%")
+            elif "Diamante" in crystal_sys: st.info(f"APF teórico Diamante = 0.340 | Error: {abs(APF-0.340)*100:.1f}%")
         else:
-            st.warning("Radio atómico no disponible para calcular APF (compuestos iónicos)")
+            st.warning("Radio atómico no disponible (compuestos iónicos).")
 
     with col_analysis_2:
         st.subheader("Densidad Teórica")
-        if data["atomic_mass"]:
-            # Mapa de masas atómicas para cálculo rápido
-            atomic_masses = {
-                "Al": 26.982, "Cu": 63.546, "Au": 196.967, "Ag": 107.868,
-                "Ni": 58.693, "Pb": 207.2, "Fe": 55.845, "Cr": 51.996,
-                "W": 183.84, "V": 50.942, "Mg": 24.305, "Zn": 65.38,
-                "Ti": 47.867, "Si": 28.085, "Ge": 72.630, "Na": 22.990,
-                "Cl": 35.453, "O": 15.999, "Ca": 40.078, "F": 18.998,
-                "Cs": 132.905, "S": 32.065, "Ga": 69.723, "As": 74.922, "C": 12.011
-            }
+        # Mapa de masas atómicas
+        atomic_masses = {
+            "Al": 26.982, "Cu": 63.546, "Au": 196.967, "Ag": 107.868,
+            "Ni": 58.693, "Pb": 207.2, "Fe": 55.845, "Cr": 51.996,
+            "W": 183.84, "V": 50.942, "Mg": 24.305, "Zn": 65.38,
+            "Ti": 47.867, "Si": 28.085, "Ge": 72.630, "Na": 22.990,
+            "Cl": 35.453, "O": 15.999, "Ca": 40.078, "F": 18.998,
+            "Cs": 132.905, "S": 32.065, "Ga": 69.723, "As": 74.922, "C": 12.011
+        }
+        
+        try:
+            # 1. Sumamos las masas atómicas de todos los átomos/iones dentro de la celda unitaria (n * A)
+            total_mass = sum([atomic_masses[sp] for sp in data["species"]])
             
-            try:
-                total_mass = sum([atomic_masses[sp] for sp in data["species"]])
-                V_cell_cm3 = structure.volume * 1e-24  # Å³ a cm³
-                N_A = 6.022e23
-                density_calc = (total_mass * N_A * 1e-24) / V_cell_cm3
+            # 2. Convertimos el volumen de Å³ a cm³ (1 Å = 10^-8 cm -> 1 Å³ = 10^-24 cm³)
+            V_cell_cm3 = structure.volume * 1e-24 
+            
+            # 3. Número de Avogadro
+            N_A = 6.022e23 
+            
+            # 4. Fórmula física correcta: ρ = (n * A) / (V_c * N_A)
+            density_calc = total_mass / (V_cell_cm3 * N_A)
 
-                st.markdown(f"""
-                $$\\rho = \\frac{{n \\cdot M}}{{N_A \\cdot V_{{celda}}}}$$
-
-                - **Masa total celda:** {total_mass:.2f} amu
-                - **Volumen de celda:** {V_cell_cm3:.2e} cm³
-                - **Densidad calculada:** {density_calc:.2f} g/cm³
-                - **Densidad tabulada:** {data['density_g_cm3']:.2f} g/cm³
-                """)
-            except KeyError:
-                st.warning("Faltan datos de masa atómica para algún elemento en el compuesto.")
-        else:
-            st.warning("Datos insuficientes para calcular densidad")
+            st.markdown(f"""
+            $$\\rho = \\frac{{n \\cdot A}}{{V_{{celda}} \\cdot N_A}}$$
+            - **Masa total celda (n·A):** {total_mass:.2f} g/mol
+            - **Volumen de celda (V_c):** {V_cell_cm3:.2e} cm³
+            - **Densidad calculada:** {density_calc:.2f} g/cm³
+            - **Densidad tabulada:** {data['density_g_cm3']:.2f} g/cm³
+            - **Error relativo:** {abs(density_calc - data['density_g_cm3']) / data['density_g_cm3'] * 100:.2f}%
+            """)
+        except KeyError:
+            st.warning("Faltan datos de masa atómica para algún elemento en el compuesto.")
 
     st.divider()
 
     # --- SECCIÓN 5: REFERENCIAS ---
-    st.header(" Referencias")
+    st.header("📚 Referencias")
     st.markdown("""
     - Shackelford, J.F. & Alexander, W. (2001). *CRC Materials Science and Engineering Handbook*. CRC Press.
     - Callister, W.D. & Rethwisch, D.G. (2014). *Materials Science and Engineering: An Introduction*. Wiley.
     - Datos cristalográficos: Materials Project Database (materialsproject.org)
     """)
 
-# ============================================================================
-# PIE DE PÁGINA
-# ============================================================================
 st.divider()
 st.markdown("""
 <div style='text-align: center; color: gray;'>
-    <p> Explorador de Materiales v2.0 | Desarrollado con Python, Streamlit, pymatgen y py3Dmol</p>
+    <p>🔬 Explorador de Materiales v2.1 | Desarrollado con Python, Streamlit, pymatgen y py3Dmol</p>
     <p>Basado en el CRC Materials Science and Engineering Handbook de Shackelford</p>
 </div>
 """, unsafe_allow_html=True)
