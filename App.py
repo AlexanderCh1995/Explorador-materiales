@@ -1,3 +1,9 @@
+"""
+Explorador de Materiales - Sistema de Información y Visualización
+Basado en el Handbook de Shackelford (CRC Materials Science and Engineering)
+Versión completa corregida (Fórmula de Densidad Teórica validada).
+"""
+
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
